@@ -13,7 +13,7 @@ module Spree
       after_save :save_default_price
 
       def default_price
-        Spree::Price.unscoped { super }
+        super
       end
 
       def has_default_price?
