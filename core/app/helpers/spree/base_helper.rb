@@ -191,10 +191,10 @@ module Spree
       self.class.send :define_method, "#{style}_image" do |product, *options|
         options = options.first || {}
         if product.images.empty?
-          if !product.is_a?(Spree::Variant) && !product.variant_images.empty?
+          if !product.is_a?(Spree::Variant) && !product.front_images.empty?
             create_product_image_tag(product.front_images.first, product, options, style)
           else
-            if product.is_a?(Variant) && !product.product.variant_images.empty?
+            if product.is_a?(Variant) && !product.product.front_images.empty?
               create_product_image_tag(product.product.front_images.first, product, options, style)
             else
               image_tag "noimage/#{style}.png", options
