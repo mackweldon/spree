@@ -31,21 +31,11 @@ module Spree
     validates :label, presence: true
     validates :amount, numericality: true
 
-    state_machine :state, initial: :open do
-      event :close do
-        transition from: :open, to: :closed
-      end
-
-      event :open do
-        transition from: :closed, to: :open
-      end
-    end
-
     after_create :update_adjustable_adjustment_total
     after_destroy :update_adjustable_adjustment_total
 
-    scope :open, -> { where(state: 'open') }
-    scope :closed, -> { where(state: 'closed') }
+    scope :open, -> { where(finalized: false) }
+    scope :closed, -> { where(finalized: true) }
     scope :tax, -> { where(source_type: 'Spree::TaxRate') }
     scope :non_tax, -> do
       source_type = arel_table[:source_type]
@@ -79,6 +69,49 @@ module Spree
       source.class < Spree::PromotionAction
     end
 
+    def finalize!
+      update_attributes!(finalized: true)
+    end
+
+    def unfinalize!
+      update_attributes!(finalized: false)
+    end
+
+    # BEGIN Deprecated methods
+    def state
+      finalized?? "closed" : "open"
+    end
+
+    def state=(new_state)
+      case new_state
+        when "open"
+          self.finalized = false
+        when "closed"
+          self.finalized = true
+        else
+          raise "invalid adjustment state #{new_state}"
+      end
+    end
+
+    def open?
+      !closed?
+    end
+
+    def closed?
+      finalized?
+    end
+
+    def open
+      unfinalize!
+    end
+    alias_method :open!, :open
+
+    def close
+      finalize!
+    end
+    alias_method :close!, :close
+    # END Deprecated methods
+
     # Recalculate amount given a target e.g. Order, Shipment, LineItem
     #
     # Passing a target here would always be recommended as it would avoid
@@ -91,7 +124,7 @@ module Spree
     # Chances are likely that this was a manually created adjustment in the admin backend.
     def update!(target = nil)
       amount = self.amount
-      return amount if closed?
+      return amount if finalized?
       if source.present?
         amount = source.compute_amount(target || adjustable)
         self.update_columns(
